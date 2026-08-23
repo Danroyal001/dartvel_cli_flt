@@ -1,3 +1,28 @@
+> ## Dartvel fork
+>
+> This is [Dartvel](https://github.com/Danroyal001/dartvel)'s fork of
+> [`jiahaog/flt`](https://github.com/jiahaog/flt), the Flutter terminal
+> embedder — Rust, Flutter's Custom Embedder API, rendering through the Kitty
+> graphics protocol with an ANSI fallback.
+>
+> **Why it exists.** Terminal rendering is a Dartvel build target:
+> `dartvel build linux-cli` (alias `-tui`) produces a binary that renders in a
+> terminal and contains no GUI backend at all. Upstream is a research project
+> that **runs apps in development** and does not produce distributable
+> binaries. Supplying that, and whatever else Dartvel needs, is this fork's
+> job rather than a reason to wait — the same arrangement as the television and
+> embedded embedder forks.
+>
+> **Status: nothing has been changed yet.** The fork exists because the Dartvel
+> rule files name it, and a fork table that points at a repository which does
+> not exist is exactly the kind of unverified claim this project forbids. The
+> Dart side of terminal rendering — target resolution, build-time backend
+> selection, `DV.Platform.surface`, launch negotiation — is implemented and
+> tested in the main repository; this backend is the remaining piece.
+>
+> **Not yet verified against any Flutter version.** When it is, this banner
+> records which. Upstream documentation and licence follow, untouched.
+
 # flt
 
 `flt` is a **Fl**utter **T**erminal Embedder, implementing the Flutter Engine's [Custom Embedder API](https://docs.flutter.dev/embedded).

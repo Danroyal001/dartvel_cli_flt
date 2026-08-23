@@ -60,6 +60,11 @@ impl FlutterProjectArgs {
     pub(crate) fn to_unsafe_args(&self) -> sys::FlutterProjectArgs {
         sys::FlutterProjectArgs {
             struct_size: std::mem::size_of::<sys::FlutterProjectArgs>(),
+            // New in the 3.44 embedder API. Wide gamut is a colour-space
+            // feature for real displays; a terminal renders through the Kitty
+            // graphics protocol, so leaving it off is both correct and the
+            // previous behaviour.
+            enable_wide_gamut: false,
             assets_path: self.assets_path,
             main_path__unused__: std::ptr::null(),
             packages_path__unused__: std::ptr::null(),

@@ -13,15 +13,47 @@
 > job rather than a reason to wait — the same arrangement as the television and
 > embedded embedder forks.
 >
-> **Status: nothing has been changed yet.** The fork exists because the Dartvel
-> rule files name it, and a fork table that points at a repository which does
-> not exist is exactly the kind of unverified claim this project forbids. The
-> Dart side of terminal rendering — target resolution, build-time backend
-> selection, `DV.Platform.surface`, launch negotiation — is implemented and
-> tested in the main repository; this backend is the remaining piece.
+> **Status: re-pinned to Dartvel's Flutter and building.** The Dart side of
+> terminal rendering — target resolution, build-time backend selection,
+> `DV.Platform.surface`, launch negotiation — is implemented and tested in the
+> main repository. What remains here is a distributable `build`, described
+> below.
 >
-> **Not yet verified against any Flutter version.** When it is, this banner
-> records which. Upstream documentation and licence follow, untouched.
+> **Verified against Flutter 3.44.5** (`f94f4fc76b`, engine
+> `83675ed27633283e7fc296c8bca22e841224c096`) on linux-x64: the whole workspace
+> compiles and links against that engine's prebuilt embedder library.
+>
+> Upstream pinned Flutter 3.38.5, which ships a Dart below Dartvel's floor of
+> 3.12. That is the same wall webOS and Sony eLinux hit — but unlike them it
+> came down without an engine build, because the prebuilt `linux-x64-embedder`
+> artifact is published for Dartvel's engine. Re-pinning needed four source
+> changes, all of them C structs that gained fields between the two versions:
+>
+> - `FlutterWindowMetricsEvent` gained view constraints. `has_constraints:
+>   false` preserves the previous behaviour — an unconstrained view — so the
+>   terminal keeps sizing itself from width/height.
+> - `FlutterPointerEvent` gained stylus pressure. A terminal reports mouse
+>   events and has no stylus, so the range is degenerate.
+> - `FlutterProjectArgs` gained `enable_wide_gamut`. A colour-space feature for
+>   real displays; off is both correct here and the prior behaviour.
+> - The new constraint fields are physical pixels (`usize`), not logical
+>   (`f64`), which the compiler caught and is worth writing down.
+>
+> Submodule URLs were changed from SSH to HTTPS. Dartvel installs this fork
+> unattended and CI has no keys, so an SSH remote makes the clone fail for
+> everyone who is not the upstream author.
+>
+> **What is still missing: a distributable build.** `flt-cli` is a development
+> loop — it builds the app, compiles the embedder from source, and runs it —
+> and upstream notes that the Flutter project is always built in debug mode
+> (`TODO: Implement support for Flutter projects in AOT mode`). Dartvel needs a
+> `dartvel-flt build <platform>` that emits an artifact someone can ship, and
+> installs under that name; `dartvel doctor --target linux-cli` already looks
+> for it at `~/.dartvel/toolchains/dartvel_flt/bin/dartvel-flt`. Until that
+> exists, `dartvel build linux-cli` skips and says so rather than substituting
+> a GUI build.
+>
+> Upstream documentation and licence follow, untouched.
 
 # flt
 

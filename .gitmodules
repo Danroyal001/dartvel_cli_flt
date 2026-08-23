@@ -1,10 +1,10 @@
 [submodule "third_party/flutter"]
 	path = third_party/flutter
-	url = git@github.com:flutter/flutter.git
+	url = https://github.com/flutter/flutter.git
 [submodule "third_party/flutter_gallery"]
 	path = third_party/flutter_gallery
-	url = git@github.com:jiahaog/flutter_gallery
+	url = https://github.com/jiahaog/flutter_gallery
 [submodule "third_party/flutter-wonderous-app"]
 	path = third_party/flutter-wonderous-app
-	url = git@github.com:jiahaog/flutter-wonderous-app
+	url = https://github.com/jiahaog/flutter-wonderous-app
 	branch = without-plugins

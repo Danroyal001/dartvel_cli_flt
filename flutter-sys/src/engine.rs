@@ -161,6 +161,15 @@ impl FlutterEngine {
             physical_view_inset_left: 0.0,
             display_id: 0,
             view_id: 0,
+            // Added to FlutterWindowMetricsEvent after the Flutter this fork
+            // was pinned to. `has_constraints: false` is the pre-existing
+            // behaviour — an unconstrained view — so the terminal keeps
+            // sizing itself from width/height as before.
+            has_constraints: false,
+            min_width_constraint: 0,
+            max_width_constraint: 0,
+            min_height_constraint: 0,
+            max_height_constraint: 0,
         };
 
         let result = unsafe {
@@ -195,6 +204,12 @@ impl FlutterEngine {
             scroll_delta_x: 0.0,
             scroll_delta_y,
             device_kind: sys::FlutterPointerDeviceKind_kFlutterPointerDeviceKindMouse,
+            // Also new. A terminal has no stylus and reports mouse events, so
+            // the range is degenerate and pressure sits at its minimum, which
+            // is what Flutter reads as "no pressure information".
+            pressure: 0.0,
+            pressure_min: 0.0,
+            pressure_max: 1.0,
             buttons: buttons.into_iter().fold(0, |acc, button| {
                 acc | sys::FlutterPointerMouseButtons::from(button) as i64
             }),

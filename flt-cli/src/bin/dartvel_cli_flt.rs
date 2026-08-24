@@ -1,4 +1,4 @@
-//! `dartvel-flt` — producing a terminal application someone can ship.
+//! `dartvel-cli-flt` — producing a terminal application someone can ship.
 //!
 //! This is the half upstream does not have, and the reason Dartvel forks this
 //! repository. `flt-cli` is a development loop: it builds the Flutter project,
@@ -8,7 +8,7 @@
 //! Dartvel needs one. `dartvel build linux-cli` promises a binary that renders
 //! in a terminal and contains no GUI backend, and its preflight looks for this
 //! executable by name at
-//! `~/.dartvel/toolchains/dartvel_flt/bin/dartvel-flt`.
+//! `~/.dartvel/toolchains/dartvel_cli_flt/bin/dartvel-cli-flt`.
 //!
 //! What it does *not* do yet is AOT, and it says so rather than quietly
 //! producing a JIT bundle when asked for a release build. Upstream notes the
@@ -23,7 +23,7 @@ use std::process::{exit, Command};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(name = "dartvel-flt", author, version, about)]
+#[command(name = "dartvel-cli-flt", author, version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -66,7 +66,7 @@ fn main() {
 fn build(platform: Option<String>, project: Option<String>, out: String, release: bool) {
     if release {
         eprintln!(
-            "dartvel-flt: release builds are not supported yet.\n\
+            "dartvel-cli-flt: release builds are not supported yet.\n\
              \n\
              The embedder runs the Flutter project in debug (JIT) mode; AOT is\n\
              not implemented. Emitting a debug bundle in answer to --release\n\
@@ -88,7 +88,7 @@ fn build(platform: Option<String>, project: Option<String>, out: String, release
         };
         if platform != host {
             eprintln!(
-                "dartvel-flt: cannot build for {platform} on {host}. The embedder \
+                "dartvel-cli-flt: cannot build for {platform} on {host}. The embedder \
                  links a host engine; cross-building is not supported."
             );
             exit(2);
@@ -131,7 +131,7 @@ fn build(platform: Option<String>, project: Option<String>, out: String, release
     let engine = find_file(&workspace.join("target"), "libflutter_engine.so")
         .unwrap_or_else(|| {
             eprintln!(
-                "dartvel-flt: libflutter_engine.so was not found under {}.\n\
+                "dartvel-cli-flt: libflutter_engine.so was not found under {}.\n\
                  It is downloaded by flutter-sys during the build; a missing \
                  one means that build did not run.",
                 workspace.join("target").display()
@@ -151,7 +151,7 @@ fn build(platform: Option<String>, project: Option<String>, out: String, release
     let assets = project_dir.join("build/flutter_assets");
     if !assets.is_dir() {
         eprintln!(
-            "dartvel-flt: {} is missing; `flutter build bundle` did not produce \
+            "dartvel-cli-flt: {} is missing; `flutter build bundle` did not produce \
              an asset bundle.",
             assets.display()
         );
@@ -166,7 +166,7 @@ fn build(platform: Option<String>, project: Option<String>, out: String, release
         Some(icu) => copy(&icu, &data_dir.join("icudtl.dat")),
         None => {
             eprintln!(
-                "dartvel-flt: icudtl.dat was not found in the Flutter SDK cache.\n\
+                "dartvel-cli-flt: icudtl.dat was not found in the Flutter SDK cache.\n\
                  The engine cannot start without it, so the bundle would be \
                  assembled and dead."
             );
@@ -196,7 +196,7 @@ fn build(platform: Option<String>, project: Option<String>, out: String, release
             .expect("chmod launcher");
     }
 
-    println!("dartvel-flt: wrote {}", out_dir.display());
+    println!("dartvel-cli-flt: wrote {}", out_dir.display());
     println!("  run it with {}", launcher.display());
 }
 
@@ -204,11 +204,11 @@ fn run(command: &mut Command, what: &str) {
     match command.status() {
         Ok(status) if status.success() => {}
         Ok(status) => {
-            eprintln!("dartvel-flt: {what} failed ({status})");
+            eprintln!("dartvel-cli-flt: {what} failed ({status})");
             exit(1);
         }
         Err(error) => {
-            eprintln!("dartvel-flt: could not run {what}: {error}");
+            eprintln!("dartvel-cli-flt: could not run {what}: {error}");
             exit(1);
         }
     }

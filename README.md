@@ -47,9 +47,9 @@
 > loop — it builds the app, compiles the embedder from source, and runs it —
 > and upstream notes that the Flutter project is always built in debug mode
 > (`TODO: Implement support for Flutter projects in AOT mode`). Dartvel needs a
-> `dartvel-flt build <platform>` that emits an artifact someone can ship, and
+> `dartvel-cli-flt build <platform>` that emits an artifact someone can ship, and
 > installs under that name; `dartvel doctor --target linux-cli` already looks
-> for it at `~/.dartvel/toolchains/dartvel_flt/bin/dartvel-flt`. Until that
+> for it at `~/.dartvel/toolchains/dartvel_cli_flt/bin/dartvel-cli-flt`. Until that
 > exists, `dartvel build linux-cli` skips and says so rather than substituting
 > a GUI build.
 >

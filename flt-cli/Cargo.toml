@@ -12,8 +12,8 @@ path = "src/main.rs"
 # Dartvel's: produces a bundle that can leave the machine. The name matters —
 # Dartvel's preflight looks for exactly this executable.
 [[bin]]
-name = "dartvel-flt"
-path = "src/bin/dartvel_flt.rs"
+name = "dartvel-cli-flt"
+path = "src/bin/dartvel_cli_flt.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

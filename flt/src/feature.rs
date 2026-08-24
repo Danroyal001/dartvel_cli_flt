@@ -1,6 +1,6 @@
 use crossterm::{style::Print, ExecutableCommand};
 use libc::{poll, pollfd, POLLIN, STDIN_FILENO};
-use std::io::{Read, Stdout, Write};
+use std::io::{Read, Write};
 use std::time::{Duration, Instant};
 
 /// Checks if the terminal supports the Kitty graphics protocol.
@@ -8,7 +8,10 @@ use std::time::{Duration, Instant};
 /// This is done by sending a "query" command to the terminal and waiting for a response.
 /// If the terminal supports the protocol, it will reply with a confirmation containing
 /// the ID we sent.
-pub fn kitty_graphics_supported(stdout: &mut Stdout) -> bool {
+/// Generic over the writer so the caller can hand it the terminal device
+/// rather than standard output — the two are no longer the same stream, and
+/// the query has to go to whichever one the frame is drawn on.
+pub fn kitty_graphics_supported<W: Write>(stdout: &mut W) -> bool {
     // Check for Kitty support by sending a graphics query.
     // Breakdown of the escape sequence:
     // \x1b_G   : Start of Kitty graphics command (APC - Application Program Command).

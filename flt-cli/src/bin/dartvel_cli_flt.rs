@@ -177,6 +177,12 @@ fn build(platform: Option<String>, project: Option<String>, out: String, release
     // A launcher, because the engine is beside the binary rather than on the
     // library path. Without it the bundle only runs from a shell that already
     // knows this, which is not what "distributable" means.
+    //
+    // It also sends the application's own output to a log file. Without that,
+    // anything the app prints is written straight onto the surface the
+    // embedder is drawing on: a screenshot of a running bundle showed the
+    // rendered frame shredded by interleaved `print` lines. The terminal is
+    // the display here, so it cannot also be the console.
     let launcher = out_dir.join("run.sh");
     fs::write(
         &launcher,
@@ -186,7 +192,8 @@ fn build(platform: Option<String>, project: Option<String>, out: String, release
          LD_LIBRARY_PATH=\"$here/lib:$LD_LIBRARY_PATH\" \\\n\
          exec \"$here/flt\" \\\n\
            --assets-dir \"$here/data/flutter_assets\" \\\n\
-           --icu-data-path \"$here/data/icudtl.dat\" \"$@\"\n",
+           --icu-data-path \"$here/data/icudtl.dat\" \\\n\
+           --log-file \"${FLT_LOG_FILE:-$here/app.log}\" \"$@\"\n",
     )
     .expect("write launcher");
     #[cfg(unix)]

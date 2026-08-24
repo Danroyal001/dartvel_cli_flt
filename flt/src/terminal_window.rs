@@ -15,7 +15,7 @@ use libc::{ftruncate, shm_open, shm_unlink, O_CREAT, O_RDWR, O_TRUNC};
 use memmap2::MmapMut;
 use std::collections::{HashMap, VecDeque};
 use std::fs::OpenOptions;
-use std::io::{stdout, Stdout, Write};
+use std::io::{stdout, Write};
 use std::iter::zip;
 use std::os::unix::io::FromRawFd;
 use std::sync::mpsc::Sender;
@@ -26,7 +26,22 @@ use std::time::Instant;
 const LOGGING_WINDOW_HEIGHT: usize = 4;
 
 pub struct TerminalWindow {
-    stdout: Stdout,
+    /// Where the frame is drawn.
+    ///
+    /// `/dev/tty` when it can be opened, standard output otherwise.
+    ///
+    /// Drawing to standard output makes the display and the console the same
+    /// stream, so anything written to stdout by the application — or by any
+    /// library it uses — lands on top of the frame, and redirecting stdout to
+    /// stop that would redirect the picture with it. Writing to the terminal
+    /// device separates the two: the frame goes to the terminal, and stdout can
+    /// be sent somewhere else.
+    ///
+    /// Note this is not about the `flutter:` lines visible on screen. Those are
+    /// the log pane below, which is drawn deliberately; the application's
+    /// `print` calls arrive through the engine's log callback and belong
+    /// there.
+    stdout: Box<dyn Write + Send>,
     lines: Vec<Vec<TerminalCell>>,
     logs: VecDeque<String>,
     log_file_writer: Option<std::fs::File>,
@@ -134,7 +149,17 @@ impl TerminalWindow {
         event_sender: Sender<PlatformEvent>,
         log_file: Option<String>,
     ) -> Self {
-        let mut stdout = stdout();
+        // The terminal device in preference to standard output; see the
+        // `stdout` field. Falling back rather than failing, because a bundle
+        // running without a controlling terminal — in a pipeline, or under a
+        // test harness — should still produce its output.
+        let mut stdout: Box<dyn Write + Send> = match std::fs::OpenOptions::new()
+            .write(true)
+            .open("/dev/tty")
+        {
+            Ok(tty) => Box::new(tty),
+            Err(_) => Box::new(stdout()),
+        };
 
         if !simple_output {
             if alternate_screen {

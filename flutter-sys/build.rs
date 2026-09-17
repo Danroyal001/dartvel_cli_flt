@@ -28,7 +28,9 @@ fn main() {
         engine_ref_path.to_str().unwrap()
     );
 
-    let engine_ref = fs::read_to_string(engine_ref_path).unwrap();
+    println!("cargo:rerun-if-env-changed=FLT_ENGINE_REVISION");
+
+    let engine_ref = engine_revision(engine_ref_path);
     let engine_ref = engine_ref.trim();
 
     let out_dir_env = env::var("OUT_DIR").unwrap();
@@ -154,5 +156,56 @@ fn unzip(src: &Path, dest: &Path) {
             .status()
             .unwrap()
             .success());
+    }
+}
+
+/// The engine revision to link against.
+///
+/// `FLT_ENGINE_REVISION` first, then the Flutter submodule's
+/// `engine.version`, which is upstream's arrangement. Without either -- a
+/// shallow clone with no submodules, which is how Dartvel installs this --
+/// the revision of the `flutter` on PATH, because that Flutter builds the
+/// bundle this engine will run, and a kernel from one engine does not load in
+/// another.
+fn engine_revision(file: &Path) -> String {
+    if let Ok(revision) = env::var("FLT_ENGINE_REVISION") {
+        if !revision.trim().is_empty() {
+            return revision;
+        }
+    }
+    if let Ok(revision) = fs::read_to_string(file) {
+        return revision;
+    }
+    let output = Command::new("flutter")
+        .args(["--version", "--machine"])
+        .output()
+        .unwrap_or_else(|e| {
+            panic!(
+                "{} is missing and `flutter --version --machine` could not run ({e}). \
+                 Set FLT_ENGINE_REVISION or put flutter on PATH.",
+                file.display()
+            )
+        });
+    let text = String::from_utf8_lossy(&output.stdout);
+    engine_revision_from_machine_version(&text).unwrap_or_else(|| {
+        panic!(
+            "{} is missing and `flutter --version --machine` named no engineRevision:\n{text}",
+            file.display()
+        )
+    })
+}
+
+/// `engineRevision` out of `flutter --version --machine`, without a JSON
+/// dependency in a build script.
+fn engine_revision_from_machine_version(text: &str) -> Option<String> {
+    let key = text.find("\"engineRevision\"")?;
+    let rest = &text[key + "\"engineRevision\"".len()..];
+    let start = rest.find('"')? + 1;
+    let end = start + rest[start..].find('"')?;
+    let revision = &rest[start..end];
+    if revision.len() == 40 && revision.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(revision.to_string())
+    } else {
+        None
     }
 }

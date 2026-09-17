@@ -1,7 +1,23 @@
 use crossterm::{style::Print, ExecutableCommand};
+#[cfg(unix)]
 use libc::{poll, pollfd, POLLIN, STDIN_FILENO};
-use std::io::{Read, Write};
+#[cfg(unix)]
+use std::io::Read;
+use std::io::Write;
+#[cfg(unix)]
 use std::time::{Duration, Instant};
+
+/// Whether the Kitty graphics protocol can be used at all on this host.
+///
+/// Not on Windows: frames are handed over by naming a POSIX shared memory
+/// object, which Windows has no equivalent of, and no Windows console speaks
+/// the protocol. Answering without sending the query also keeps its reply out
+/// of the console input the event thread reads.
+#[cfg(not(unix))]
+pub fn kitty_graphics_supported<W: Write>(_stdout: &mut W) -> bool {
+    false
+}
+
 
 /// Checks if the terminal supports the Kitty graphics protocol.
 ///
@@ -11,6 +27,7 @@ use std::time::{Duration, Instant};
 /// Generic over the writer so the caller can hand it the terminal device
 /// rather than standard output — the two are no longer the same stream, and
 /// the query has to go to whichever one the frame is drawn on.
+#[cfg(unix)]
 pub fn kitty_graphics_supported<W: Write>(stdout: &mut W) -> bool {
     // Check for Kitty support by sending a graphics query.
     // Breakdown of the escape sequence:

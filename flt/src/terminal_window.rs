@@ -11,12 +11,15 @@ use crossterm::terminal::{
     LeaveAlternateScreen,
 };
 use crossterm::{ExecutableCommand, QueueableCommand};
+#[cfg(unix)]
 use libc::{ftruncate, shm_open, shm_unlink, O_CREAT, O_RDWR, O_TRUNC};
+#[cfg(unix)]
 use memmap2::MmapMut;
 use std::collections::{HashMap, VecDeque};
 use std::fs::OpenOptions;
 use std::io::{stdout, Write};
 use std::iter::zip;
+#[cfg(unix)]
 use std::os::unix::io::FromRawFd;
 use std::sync::mpsc::Sender;
 use std::thread;
@@ -58,11 +61,16 @@ pub struct TerminalWindow {
     pixels_per_col: f64,
     pixels_per_row: f64,
     device_pixel_ratio: f64,
+    #[cfg(unix)]
     shm_buffer: Option<SharedMemoryBuffer>,
+    /// The console output code page to put back on exit.
+    #[cfg(windows)]
+    restore_code_page: Option<u32>,
     frame_count: u64,
     logs_dirty: bool,
 }
 
+#[cfg(unix)]
 struct SharedMemoryBuffer {
     name: String,
     // We keep file to keep the FD open (though shm persists until unlinked/closed)
@@ -75,6 +83,7 @@ struct SharedMemoryBuffer {
     map: Option<MmapMut>,
 }
 
+#[cfg(unix)]
 impl SharedMemoryBuffer {
     fn new(size: usize, suffix: u64) -> std::io::Result<Self> {
         let pid = std::process::id();
@@ -105,6 +114,7 @@ impl SharedMemoryBuffer {
     }
 }
 
+#[cfg(unix)]
 impl Drop for SharedMemoryBuffer {
     fn drop(&mut self) {
         if let Ok(c_name) = std::ffi::CString::new(self.name.clone()) {
@@ -137,6 +147,11 @@ impl Drop for TerminalWindow {
             // Add a newline char so any other subsequent logs appear on the next line.
             self.stdout.execute(Print("\n")).unwrap();
         }
+
+        #[cfg(windows)]
+        if let Some(code_page) = self.restore_code_page {
+            windows_console::set_output_code_page(code_page);
+        }
     }
 }
 
@@ -154,11 +169,29 @@ impl TerminalWindow {
         // running without a controlling terminal — in a pipeline, or under a
         // test harness — should still produce its output.
         let mut stdout: Box<dyn Write + Send> = match std::fs::OpenOptions::new()
+            // A console screen buffer is opened read-write, as CreateFile's
+            // documentation for CONOUT$ asks.
+            .read(cfg!(windows))
             .write(true)
-            .open("/dev/tty")
+            .open(TERMINAL_DEVICE)
         {
             Ok(tty) => Box::new(tty),
             Err(_) => Box::new(stdout()),
+        };
+
+        // The Windows console draws escape sequences only in virtual terminal
+        // mode, and decodes the bytes written to it with the console code page
+        // -- OEM 437 by default, which turns every UTF-8 half block into three
+        // wrong glyphs. Both belong to the console, so they are set here, and
+        // the code page is put back on exit. Where VT mode cannot be turned on
+        // (a console older than Windows 10 1511) crossterm carries its commands
+        // out through the console API instead, which is the fallback.
+        #[cfg(windows)]
+        let restore_code_page = if simple_output {
+            None
+        } else {
+            crossterm::ansi_support::supports_ansi();
+            windows_console::use_utf8_output()
         };
 
         if !simple_output {
@@ -174,7 +207,10 @@ impl TerminalWindow {
             stdout.execute(EnableMouseCapture).unwrap();
         }
 
-        let kitty_mode = if !simple_output && !disable_kitty {
+        // Kitty frames are sent by naming a POSIX shared memory object, which
+        // Windows does not have -- and no Windows console implements the
+        // protocol -- so there the ANSI renderer is the only one.
+        let kitty_mode = if !simple_output && !disable_kitty && KITTY_TRANSPORT_AVAILABLE {
             crate::feature::kitty_graphics_supported(&mut stdout)
         } else {
             false
@@ -230,7 +266,10 @@ impl TerminalWindow {
             pixels_per_col,
             pixels_per_row,
             device_pixel_ratio,
+            #[cfg(unix)]
             shm_buffer: None,
+            #[cfg(windows)]
+            restore_code_page,
             frame_count: 0,
             logs_dirty: true,
         }
@@ -413,6 +452,12 @@ impl TerminalWindow {
         Ok(())
     }
 
+    #[cfg(not(unix))]
+    fn draw_kitty(&mut self, _: Vec<u8>, _: usize, _: usize) -> Result<(), std::io::Error> {
+        unreachable!("kitty mode is never enabled without a shared memory transport")
+    }
+
+    #[cfg(unix)]
     fn draw_kitty(
         &mut self,
         buffer: Vec<u8>,
@@ -597,3 +642,38 @@ fn to_color_from_bytes(pixel_bytes: Option<&[u8]>) -> Color {
 }
 
 const HELP_HINT: &str = "? for help";
+
+/// The device the frame is drawn on; see [TerminalWindow::stdout].
+#[cfg(not(windows))]
+const TERMINAL_DEVICE: &str = "/dev/tty";
+/// The active console screen buffer, which is to a Windows process what
+/// `/dev/tty` is to a Unix one: the display, wherever stdout was redirected.
+#[cfg(windows)]
+const TERMINAL_DEVICE: &str = "CONOUT$";
+
+const KITTY_TRANSPORT_AVAILABLE: bool = cfg!(unix);
+
+#[cfg(windows)]
+mod windows_console {
+    use winapi::um::consoleapi::GetConsoleOutputCP;
+    use winapi::um::wincon::SetConsoleOutputCP;
+
+    const CP_UTF8: u32 = 65001;
+
+    /// Switches console output to UTF-8, returning the code page to restore,
+    /// or None when it already was UTF-8 or there is no console to switch.
+    pub(super) fn use_utf8_output() -> Option<u32> {
+        let previous = unsafe { GetConsoleOutputCP() };
+        if previous == 0 || previous == CP_UTF8 {
+            return None;
+        }
+        if unsafe { SetConsoleOutputCP(CP_UTF8) } == 0 {
+            return None;
+        }
+        Some(previous)
+    }
+
+    pub(super) fn set_output_code_page(code_page: u32) {
+        unsafe { SetConsoleOutputCP(code_page) };
+    }
+}

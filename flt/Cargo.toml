@@ -15,3 +15,7 @@ memmap2 = "0.9.9"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 metal = "0.26.0"
+
+[target.'cfg(windows)'.dependencies]
+# Already in the tree through crossterm; named here for the console code page.
+winapi = { version = "0.3", features = ["consoleapi", "wincon"] }

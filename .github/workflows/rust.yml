@@ -5,17 +5,28 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
+  # Dartvel's Flutter. The engine the embedder links has to be the one whose
+  # `flutter build bundle` made the kernel it runs.
+  FLUTTER_VERSION: 3.44.5
 
 jobs:
+  # Every host a terminal bundle is built on. The embedder links a host engine
+  # and does not cross-build, so each one is its own build: linux-x64, macOS on
+  # arm64 and on Intel, and Windows x64.
   build:
-
-    runs-on: ubuntu-latest
-
+    name: build and test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: true
     - name: Build
@@ -23,19 +34,60 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
 
-  address_sanitizer:
-
-    runs-on: ubuntu-latest
-
+  # Builds a distributable bundle of the sample app on each host with
+  # dartvel-cli-flt and checks it has what that host's loader needs. The
+  # Dartvel repository's runtime verification runs a Dartvel application from
+  # the same command; this catches a layout regression here first.
+  bundle:
+    name: bundle (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, host: linux, engine: lib/libflutter_engine.so, exe: flt, launcher: run.sh }
+          - { os: macos-latest, host: macos, engine: lib/FlutterEmbedder.framework/FlutterEmbedder, exe: flt, launcher: run.sh }
+          - { os: macos-15-intel, host: macos, engine: lib/FlutterEmbedder.framework/FlutterEmbedder, exe: flt, launcher: run.sh }
+          - { os: windows-latest, host: windows, engine: flutter_engine.dll, exe: flt.exe, launcher: run.cmd }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: Install Nightly
+    # No submodules: that is how Dartvel installs this, and without them the
+    # engine revision comes from the flutter on PATH.
+    - uses: actions/checkout@v4
+    - uses: subosito/flutter-action@v2
+      with: { flutter-version: '${{ env.FLUTTER_VERSION }}', channel: stable, cache: true }
+    - name: Assemble the sample app
+      shell: bash
       run: |
-        rustup toolchain install nightly
-        rustup override set nightly
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+        set -euo pipefail
+        cargo run --release -p flt-cli --bin dartvel-cli-flt -- \
+          build ${{ matrix.host }} --project sample_app --out "$RUNNER_TEMP/bundle"
+        find "$RUNNER_TEMP/bundle" -maxdepth 2 | sort
+    - name: The bundle has what this host's loader needs
+      shell: bash
+      run: |
+        set -euo pipefail
+        B="$RUNNER_TEMP/bundle"
+        for f in "${{ matrix.exe }}" "${{ matrix.engine }}" "${{ matrix.launcher }}" \
+                 data/icudtl.dat data/flutter_assets/kernel_blob.bin; do
+          test -e "$B/$f" || { echo "::error::bundle is missing $f"; exit 1; }
+        done
+    - name: macOS finds the engine through the bundle, not the build tree
+      if: matrix.host == 'macos'
+      run: |
+        set -euo pipefail
+        otool -l "$RUNNER_TEMP/bundle/flt" | grep -A2 LC_RPATH
+        otool -l "$RUNNER_TEMP/bundle/flt" | grep -q "@executable_path/lib"
+        otool -L "$RUNNER_TEMP/bundle/flt" | grep FlutterEmbedder
+        # Moved away from the checkout, so the cargo output directory the
+        # binary also names cannot be what satisfies the loader.
+        mv target target.moved
+        (sleep 12; printf '\003'; sleep 8) | \
+          script -q /dev/null sh -c "stty rows 40 cols 120; '$RUNNER_TEMP/bundle/run.sh'" \
+          > "$RUNNER_TEMP/capture.bin" 2>&1 || status=$?
+        mv target.moved target
+        echo "exit: ${status:-0}"
+        wc -c "$RUNNER_TEMP/capture.bin"
+        head -c 600 "$RUNNER_TEMP/capture.bin" | cat -v
+        test "${status:-0}" -eq 0
+        test "$(grep -c $'\x1b' "$RUNNER_TEMP/capture.bin")" -gt 0

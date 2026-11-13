@@ -12,3 +12,4 @@ pub mod kitty;
 pub mod framebuffer;
 pub mod session;
 pub mod keymap;
+pub mod text_editing;

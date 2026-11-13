@@ -11,3 +11,4 @@ pub mod input;
 pub mod kitty;
 pub mod framebuffer;
 pub mod session;
+pub mod keymap;

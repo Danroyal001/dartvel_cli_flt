@@ -15,3 +15,4 @@ pub mod keymap;
 pub mod text_editing;
 pub mod pointer;
 pub mod standard_codec;
+pub mod geometry;

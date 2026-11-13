@@ -1,0 +1,7 @@
+[package]
+name = "flt-term"
+version = "0.1.0"
+edition = "2021"
+description = "Terminal output and input for the Dartvel terminal runner: frame encoders, terminal detection, input parsing, frame pacing. No Flutter dependency, so every piece is testable without an engine."
+
+[dependencies]

@@ -284,6 +284,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "flt-term"
+version = "0.1.0"
+
+[[package]]
 name = "flutter-sys"
 version = "0.1.0"
 dependencies = [

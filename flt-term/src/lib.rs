@@ -4,3 +4,4 @@
 //! rendered frame and the regions that changed to a [frame::FrameEncoder],
 //! and writes the bytes it returns to the terminal.
 pub mod frame;
+pub mod damage;

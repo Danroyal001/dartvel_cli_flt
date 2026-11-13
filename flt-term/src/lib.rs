@@ -7,3 +7,4 @@ pub mod frame;
 pub mod damage;
 pub mod pacing;
 pub mod detect;
+pub mod input;

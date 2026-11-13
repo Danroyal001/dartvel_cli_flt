@@ -8,3 +8,4 @@ pub mod damage;
 pub mod pacing;
 pub mod detect;
 pub mod input;
+pub mod kitty;

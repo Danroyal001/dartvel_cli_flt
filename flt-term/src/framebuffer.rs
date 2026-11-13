@@ -153,6 +153,14 @@ pub fn read_mouse_packet(bytes: [u8; 3]) -> Option<MousePacket> {
 #[cfg(target_os = "linux")]
 pub mod device;
 
+/// Switches a console back to text mode; a no-op where there is no framebuffer.
+pub fn device_text_mode(console_fd: i32) {
+    #[cfg(target_os = "linux")]
+    device::text_mode(console_fd);
+    #[cfg(not(target_os = "linux"))]
+    let _ = console_fd;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,3 +9,4 @@ pub mod pacing;
 pub mod detect;
 pub mod input;
 pub mod kitty;
+pub mod framebuffer;
